@@ -1,3 +1,4 @@
-[submodule "ki-lime-pi-pico"]
-	path = elec/libs/ki-lime-pi-pico
+
+[submodule "elec/libs/ki-lime-pi-to-go"]
+	path = elec/libs/ki-lime-pi-to-go
 	url = https://github.com/recursivenomad/ki-lime-pi-to-go.git

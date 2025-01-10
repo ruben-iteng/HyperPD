@@ -1,0 +1,20 @@
+(fp_lib_table 
+    (version 7)
+    (lib
+        (name "lcsc")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../../build/kicad/libs/footprints/lcsc.pretty")
+        (options "")
+        (descr "atopile: lcsc footprints"))
+    (lib
+        (name "custom")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../libs/footprints/custom.pretty")
+        (options "")
+        (descr ""))
+    (lib
+        (name "ki-lime-pi-pico")
+        (type "KiCad")
+        (uri "${KIPRJMOD}/../libs/ki-lime-pi-to-go/Module_RaspberryPi_Pico.pretty")
+        (options "")
+        (descr "Raspberry Pi Pico footprints")))
