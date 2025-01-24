@@ -220,7 +220,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "default.kicad_pro",
+    "filename": "tpsm86837rcgr_reference_design.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -254,7 +254,7 @@
     "last_paths": {
       "gencad": "",
       "idf": "",
-      "netlist": "../../build/default/default.net",
+      "netlist": "../../build/tpsm86837rcgr_reference_design/tpsm86837rcgr_reference_design.net",
       "plot": "",
       "pos_files": "",
       "specctra_dsn": "",

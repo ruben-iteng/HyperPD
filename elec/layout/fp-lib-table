@@ -1,20 +1,14 @@
 (fp_lib_table 
     (version 7)
     (lib
-        (name "lcsc")
+        (name "atopile")
         (type "KiCad")
-        (uri "${KIPRJMOD}/../../build/kicad/libs/footprints/lcsc.pretty")
+        (uri "${KIPRJMOD}/../../build/kicad/libs/footprints/atopile.pretty")
         (options "")
-        (descr "atopile: lcsc footprints"))
+        (descr "atopile: atopile footprints"))
     (lib
-        (name "custom")
+        (name "ki-lime-pi-to-go")
         (type "KiCad")
-        (uri "${KIPRJMOD}/../libs/footprints/custom.pretty")
-        (options "")
-        (descr ""))
-    (lib
-        (name "ki-lime-pi-pico")
-        (type "KiCad")
-        (uri "${KIPRJMOD}/../libs/ki-lime-pi-to-go/Module_RaspberryPi_Pico.pretty")
+        (uri "${KIPRJMOD}/../libs/ki-lime-pi-to-go//home/ruben/Documents/repos/atopile_projects/Apps/HyperPD/elec/libs/ki-lime-pi-to-go/Module_RaspberryPi_Pico.pretty")
         (options "")
         (descr "Raspberry Pi Pico footprints")))
