@@ -27,53 +27,53 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     #               modules
     # ----------------------------------------
     class SwitchingFrequency(Enum):
-        _800kHz = auto()
-        _1200kHz = auto()
+        _800kHz = L.Range.from_center_rel(162 * P.kohm, 0.01)
+        _1200kHz = L.Range.from_center_rel(374 * P.kohm, 0.01)
 
-    @assert_once
-    def set_output_voltage(self, voltage: Quantity_Interval, owner: Module):
-        """
-        Set the output voltage of the module
-        """
+    # @assert_once
+    # def set_output_voltage(self, voltage: Quantity_Interval, owner: Module):
+    #     """
+    #     Set the output voltage of the module
+    #     """
 
-        # Voltage divider resistors
-        # TODO: replace with voltage divider
-        resistor_top = F.Resistor()
-        resistor_top.resistance.constrain_subset(L.Range(0.0 * P.ohm, 82.0 * P.kohm))
-        resistor_bottom = F.Resistor()
-        resistor_bottom.resistance.constrain_subset(
-            L.Range.from_center_rel(10 * P.kohm, 0.01)
-        )
+    #     # Voltage divider resistors
+    #     # TODO: replace with voltage divider
+    #     resistor_top = F.Resistor()
+    #     resistor_top.resistance.constrain_subset(L.Range(0.0 * P.ohm, 82.0 * P.kohm))
+    #     resistor_bottom = F.Resistor()
+    #     resistor_bottom.resistance.constrain_subset(
+    #         L.Range.from_center_rel(10 * P.kohm, 0.01)
+    #     )
 
-        # optional resistor to in-circuit measure frequency response of the control loop
-        resistor_control_loop_measurement = F.Resistor()
-        resistor_control_loop_measurement.allow_removal_if_zero()
-        resistor_control_loop_measurement.resistance.constrain_subset(
-            L.Range.from_center_rel(49.9 * P.ohm, 0.01)
-        )
+    #     # optional resistor to in-circuit measure frequency response of the control loop
+    #     resistor_control_loop_measurement = F.Resistor()
+    #     resistor_control_loop_measurement.allow_removal_if_zero()
+    #     resistor_control_loop_measurement.resistance.constrain_subset(
+    #         L.Range.from_center_rel(49.9 * P.ohm, 0.01)
+    #     )
 
-        # Optional capacitor to improve the load transient response or improve the loop-phase margin
-        capacitor_filter = F.Capacitor()
-        # capacitor_filter.allow_removal_if_zero() #TODO: make similar function
-        capacitor_filter.capacitance.constrain_subset(
-            L.Range.from_center_rel(10 * P.nF, 0.01)
-        )
+    #     # Optional capacitor to improve the load transient response or improve the loop-phase margin
+    #     capacitor_filter = F.Capacitor()
+    #     # capacitor_filter.allow_removal_if_zero() #TODO: make similar function
+    #     capacitor_filter.capacitance.constrain_subset(
+    #         L.Range.from_center_rel(10 * P.nF, 0.01)
+    #     )
 
-        self.feedback.connect_via(resistor_bottom, self.analog_power.lv)
-        self.feedback.connect_via(
-            [resistor_top, resistor_control_loop_measurement], self.power_out.hv
-        )
-        self.feedback.connect_via(
-            [capacitor_filter, resistor_control_loop_measurement],
-            self.power_out.hv,
-        )
+    #     self.feedback.connect_via(resistor_bottom, self.power_analog.lv)
+    #     self.feedback.connect_via(
+    #         [resistor_top, resistor_control_loop_measurement], self.power_out.hv
+    #     )
+    #     self.feedback.connect_via(
+    #         [capacitor_filter, resistor_control_loop_measurement],
+    #         self.power_out.hv,
+    #     )
 
-        # self.output_voltage.alias_is(voltage)
-        self.output_voltage.alias_is(
-            0.6 * (1 + resistor_top.resistance / resistor_bottom.resistance) * P.V
-        )
-        owner.add(resistor_top)
-        owner.add(resistor_bottom)
+    #     # self.output_voltage.alias_is(voltage)
+    #     self.output_voltage.alias_is(
+    #         0.6 * (1 + resistor_top.resistance / resistor_bottom.resistance) * P.V
+    #     )
+    #     owner.add(resistor_top)
+    #     owner.add(resistor_bottom)
 
     @assert_once
     def set_soft_start_time(self, time: float, owner: Module):
@@ -110,7 +110,7 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         owner.add(soft_start_timing_capacitor)
 
         # connections
-        self.soft_start.connect_via(soft_start_timing_capacitor, self.analog_power.lv)
+        self.soft_start.connect_via(soft_start_timing_capacitor, self.power_analog.lv)
 
     @assert_once
     def set_input_under_voltage_lockout(
@@ -136,26 +136,26 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         # r2=(r1*VENfaling)/(Vstop-VENfaling+r1*(Ip+Ih))
         # VEN = (r2*VIN+r1*r2*(Ip+Ih))/(r1+r2)
 
-    @assert_once
-    def set_switching_frequency(self, frequency: SwitchingFrequency, owner: Module):
-        """
-        Set the switching frequency of the module.
-        """
-        switching_frequency_resistor = F.Resistor()
-        if frequency == self.SwitchingFrequency._800kHz:
-            switching_frequency_resistor.resistance.constrain_subset(
-                L.Range.from_center_rel(162 * P.kohm, 0.01)
-            )
-        else:
-            switching_frequency_resistor.resistance.constrain_subset(
-                L.Range.from_center_rel(374 * P.kohm, 0.01)
-            )
+    # @assert_once
+    # def set_switching_frequency(self, frequency: SwitchingFrequency, owner: Module):
+    #     """
+    #     Set the switching frequency of the module.
+    #     """
+    #     switching_frequency_resistor = F.Resistor()
+    #     if frequency == self.SwitchingFrequency._800kHz:
+    #         switching_frequency_resistor.resistance.constrain_subset(
+    #             L.Range.from_center_rel(162 * P.kohm, 0.01)
+    #         )
+    #     else:
+    #         switching_frequency_resistor.resistance.constrain_subset(
+    #             L.Range.from_center_rel(374 * P.kohm, 0.01)
+    #         )
 
-        self.frequency_mode.connect_via(
-            switching_frequency_resistor, self.analog_power.lv
-        )
+    #     self.frequency_mode.connect_via(
+    #         switching_frequency_resistor, self.power_analog.lv
+    #     )
 
-        owner.add(switching_frequency_resistor)
+    #     owner.add(switching_frequency_resistor)
 
     # ----------------------------------------
     #              interfaces
@@ -164,7 +164,7 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     frequency_mode: F.Electrical  # pin: 2
     enable: F.EnablePin  # pin: 3
     feedback: F.Electrical  # pin: 4
-    analog_power: F.ElectricPower  # pin: 5
+    power_analog: F.ElectricPower  # pin: 5
     power_good: F.ElectricLogic  # pin: 6
     soft_start: F.Electrical  # pin: 7
     power_in: F.ElectricPower  # pins: 8, 9
@@ -179,6 +179,9 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         units=P.V,
         likely_constrained=True,
         soft_set=L.Range(0.6 * P.V, 5.5 * P.V),
+    )
+    switching_frequency = L.p_field(
+        domain=L.Domains.ENUM(SwitchingFrequency),
     )
 
     # ----------------------------------------
@@ -216,7 +219,7 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
                 "2": self.frequency_mode,
                 "3": self.enable.enable.signal,
                 "4": self.feedback,
-                "5": self.analog_power.lv,
+                "5": self.power_analog.lv,
                 "6": self.power_good.signal,
                 "7": self.soft_start,
                 "8": self.power_in.hv,
@@ -245,3 +248,8 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         # self.enable.make_required()
         self.power_in.voltage.constrain_subset(L.Range(4.5 * P.V, 28 * P.V))
         self.power_out.voltage.constrain_subset(self.output_voltage)
+
+        # The datasheet does not specify a specific voltage, but there is an image of the internal circuitry showing a 5V rail
+        self.power_analog.voltage.constrain_subset(
+            L.Range.from_center_rel(5 * P.V, 0.01)
+        )

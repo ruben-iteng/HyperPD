@@ -21,10 +21,78 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
     synchronous buck module with QFN package
     """
 
+    class OutputVoltageFeedback(Module):
+        # ----------------------------------------
+        #              interfaces
+        # ----------------------------------------
+        feedback: F.Electrical
+        output_power_rail: F.ElectricPower
+        analog_power_rail: F.ElectricPower
+
+        # ----------------------------------------
+        #               parameters
+        # ----------------------------------------
+        output_voltage = L.p_field(units=P.V)
+
+        # ----------------------------------------
+        #               modules
+        # ----------------------------------------
+        resistor_top: F.Resistor
+        resistor_bottom: F.Resistor
+
+        # TODO: make optional?
+        # Optional resistor to in-circuit measure frequency response of the control loop
+        resistor_control_loop_measurement: F.Resistor
+
+        # TODO: make optional?
+        # Optional capacitor to improve the load transient response or improve the loop-phase margin
+        capacitor_filter: F.Capacitor
+
+        def __preinit__(self):
+            # ------------------------------------
+            #           connections
+            # ------------------------------------
+            self.feedback.connect_via(self.resistor_bottom, self.analog_power_rail.lv)
+            self.feedback.connect_via(
+                [self.resistor_top, self.resistor_control_loop_measurement],
+                self.output_power_rail.hv,
+            )
+            self.feedback.connect_via(
+                [self.capacitor_filter, self.resistor_control_loop_measurement],
+                self.output_power_rail.hv,
+            )
+
+            # ------------------------------------
+            #          parametrization
+            # ------------------------------------
+            self.output_voltage.alias_is(
+                0.6
+                * (1 + self.resistor_top.resistance / self.resistor_bottom.resistance)
+                * P.V
+            )
+
+            # Valid values from the datasheet
+            self.resistor_top.resistance.constrain_subset(
+                L.Range(0.0 * P.ohm, 82.0 * P.kohm)
+            )
+            self.resistor_bottom.resistance.constrain_subset(
+                L.Range.from_center_rel(10 * P.kohm, 0.01)
+            )
+            self.resistor_control_loop_measurement.allow_removal_if_zero()
+            self.resistor_control_loop_measurement.resistance.constrain_subset(
+                L.Range.from_center_rel(49.9 * P.ohm, 0.01)
+            )
+            # self.capacitor_filter.allow_removal_if_zero() #TODO: make similar function
+            self.capacitor_filter.capacitance.constrain_subset(
+                L.Range.from_center_rel(10 * P.nF, 0.01)
+            )
+
     # ----------------------------------------
     #               modules
     # ----------------------------------------
     power_module: TEXAS_INSTRUMENTS_TPSM86837RCGR
+    switching_frequency_resistor: F.Resistor
+    output_voltage_feedback: OutputVoltageFeedback
 
     # ----------------------------------------
     #              interfaces
@@ -66,9 +134,21 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
             L.Range.from_center_rel(100 * P.kohm, 0.10)
         )
 
+        self.power_module.frequency_mode.connect_via(
+            self.switching_frequency_resistor, self.power_in.lv
+        )
+
         # ------------------------------------
         #          parametrization
         # ------------------------------------
+        self.power_module.output_voltage.alias_is(
+            self.output_voltage_feedback.output_voltage
+        )
+
+        self.switching_frequency_resistor.resistance.constrain_subset(
+            self.power_module.switching_frequency
+        )
+
         # self.enable.make_required()
         for cap in self.power_in.decoupled.decouple(owner=self, count=2).capacitors:
             cap.capacitance.constrain_subset(L.Range.from_center_rel(10 * P.uF, 0.1))
@@ -84,3 +164,6 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
                 )
             )
             # cap.add(F.has_descriptive_properties_defined({"LCSC": "C21397"}))
+
+        for res in self.get_children_modules(types=F.Resistor):
+            res.add(F.has_package(F.has_package.Package.R0402))

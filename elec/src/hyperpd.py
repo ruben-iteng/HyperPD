@@ -98,13 +98,10 @@ class App(Module):
         # ------------------------------------
         #          parametrization
         # ------------------------------------
-        self.dcdc_module.power_module.set_switching_frequency(
-            self.dcdc_module.power_module.SwitchingFrequency._800kHz, owner=self
+        self.dcdc_module.power_module.switching_frequency.constrain_subset(
+            self.dcdc_module.power_module.SwitchingFrequency._800kHz
         )
-        # self.dcdc_module.power_module.set_output_voltage(
-        # voltage=L.Range.from_center_rel(5.0 * P.V, 0.01), owner=self
-        # )
-        self.dcdc_module.power_module.power_out.voltage.constrain_subset(
+        self.dcdc_module.power_module.output_voltage.constrain_subset(
             L.Range.from_center_rel(5.0 * P.V, 0.01)
         )
         # self.dcdc_module.power_module.set_soft_start_time(time=2.2, owner=self)
