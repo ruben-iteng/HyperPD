@@ -84,9 +84,9 @@
 	(net 2 "usb_pr_trigger-signal")
 	(net 3 "cc[0]")
 	(net 4 "usb_pr_trigger.controller-signal-1")
-	(net 5 "usb_pr_trigger.controller-signal-2")
+	(net 5 "usb_pr_trigger.controller-signal")
 	(net 6 "cathode")
-	(net 7 "usb_pr_trigger.controller-signal")
+	(net 7 "usb_pr_trigger.controller-signal-2")
 	(net 8 "hv")
 	(net 9 "usb_pr_trigger-hv")
 	(net 10 "signal-1")
@@ -1765,7 +1765,7 @@
 			(at 0 3 90)
 			(size 1.5 0.6)
 			(layers "F.Cu" "F.Paste" "F.Mask")
-			(net 5 "usb_pr_trigger.controller-signal-2")
+			(net 5 "usb_pr_trigger.controller-signal")
 			(uuid "b1be04f3-51c7-4c7a-81b9-c870ae2e01b2")
 		)
 		(pad "4" smd rect
@@ -1807,7 +1807,7 @@
 			(at -1 -3 90)
 			(size 1.5 0.6)
 			(layers "F.Cu" "F.Paste" "F.Mask")
-			(net 7 "usb_pr_trigger.controller-signal")
+			(net 7 "usb_pr_trigger.controller-signal-2")
 			(uuid "2486df5d-0b84-45fe-adec-5154291a1281")
 		)
 		(pad "10" smd rect
@@ -2878,6 +2878,7 @@
 		(layers "F&B.Cu")
 		(uuid "e671292a-4506-4813-a451-06288d209f48")
 		(hatch edge 0.5)
+		(priority 1)
 		(connect_pads
 			(clearance 0.25)
 		)
