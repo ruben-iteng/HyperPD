@@ -68,7 +68,6 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
             self.output_voltage.alias_is(
                 0.6
                 * (1 + self.resistor_top.resistance / self.resistor_bottom.resistance)
-                * P.V
             )
 
             # Valid values from the datasheet
@@ -146,7 +145,7 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         )
 
         self.switching_frequency_resistor.resistance.constrain_subset(
-            self.power_module.switching_frequency
+            L.Range.from_center_rel(162 * P.kohm, 0.01)
         )
 
         # self.enable.make_required()

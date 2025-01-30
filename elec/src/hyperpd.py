@@ -48,8 +48,8 @@ class App(Module):
                     pinmap={
                         "1": self.power.hv,
                         "2": self.power.lv,
-                        "3": self.data.signal,
-                        "4": self.clock.signal,
+                        "3": self.data.line,
+                        "4": self.clock.line,
                     }
                 )
             )
@@ -84,8 +84,8 @@ class App(Module):
         # ------------------------------------
         nets = {
             "vbus": vbus.hv,
-            "data": self.led_connector[0].data.signal,
-            "clock": self.led_connector[0].clock.signal,
+            "data": self.led_connector[0].data.line,
+            "clock": self.led_connector[0].clock.line,
         }
         for name, mif in nets.items():
             assert isinstance(
@@ -98,9 +98,9 @@ class App(Module):
         # ------------------------------------
         #          parametrization
         # ------------------------------------
-        self.dcdc_module.power_module.switching_frequency.constrain_subset(
-            self.dcdc_module.power_module.SwitchingFrequency._800kHz
-        )
+        # self.dcdc_module.power_module.switching_frequency.constrain_subset(
+        #    self.dcdc_module.power_module.SwitchingFrequency._800kHz
+        # )
         self.dcdc_module.power_module.output_voltage.constrain_subset(
             L.Range.from_center_rel(5.0 * P.V, 0.01)
         )

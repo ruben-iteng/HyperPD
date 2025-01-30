@@ -27,8 +27,14 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     #               modules
     # ----------------------------------------
     class SwitchingFrequency(Enum):
-        _800kHz = L.Range.from_center_rel(162 * P.kohm, 0.01)
-        _1200kHz = L.Range.from_center_rel(374 * P.kohm, 0.01)
+        _800kHz = auto()
+        _1200kHz = auto()
+
+    # Class attributes to store the corresponding resistance ranges
+    SWITCHING_FREQ_RESISTANCES = {
+        SwitchingFrequency._800kHz: L.Range.from_center_rel(162 * P.kohm, 0.01),
+        SwitchingFrequency._1200kHz: L.Range.from_center_rel(374 * P.kohm, 0.01),
+    }
 
     # @assert_once
     # def set_output_voltage(self, voltage: Quantity_Interval, owner: Module):
@@ -180,9 +186,9 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         likely_constrained=True,
         soft_set=L.Range(0.6 * P.V, 5.5 * P.V),
     )
-    switching_frequency = L.p_field(
-        domain=L.Domains.ENUM(SwitchingFrequency),
-    )
+    # switching_frequency = L.p_field(
+    #    domain=L.Domains.ENUM(SwitchingFrequency),
+    # )
 
     # ----------------------------------------
     #                 traits
@@ -217,10 +223,10 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
             {
                 "1": self.power_out.hv,
                 "2": self.frequency_mode,
-                "3": self.enable.enable.signal,
+                "3": self.enable.enable.line,
                 "4": self.feedback,
                 "5": self.power_analog.lv,
-                "6": self.power_good.signal,
+                "6": self.power_good.line,
                 "7": self.soft_start,
                 "8": self.power_in.hv,
                 "9": self.power_in.hv,
