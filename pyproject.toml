@@ -1,0 +1,7 @@
+[project]
+name = "hyperpd"
+version = "0.1.0"
+description = "HyperHDR LED controller with USB-PD power input"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
