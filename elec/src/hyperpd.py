@@ -14,6 +14,7 @@ from .TexasInstrumentsTPSM86837RCGR_ReferenceDesign import (
     TexasInstrumentsTPSM86837RCGR_ReferenceDesign,
 )
 from .usb_power_source import USB_Power_Source
+from .digital_led_buffer import DigitalLEDBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,17 @@ class App(Module):
         lcsc_id = L.f_field(F.has_descriptive_properties_defined)({"LCSC": "C19268030"})
 
         def __preinit__(self):
+            fused_power = self.power.fused()
+            fuse = fused_power.get_first_child_of_type(F.Fuse)
+            fuse.trip_current.constrain_subset(
+                L.Range.from_center_rel(8 * P.A, 10 * P.percent)
+            )
+            fuse.fuse_type.alias_is(F.Fuse.FuseType.RESETTABLE)
             self.add(
                 F.can_attach_to_footprint_via_pinmap(
                     pinmap={
-                        "1": self.power.hv,
-                        "2": self.power.lv,
+                        "1": fused_power.hv,
+                        "2": fused_power.lv,
                         "3": self.data.line,
                         "4": self.clock.line,
                     }
@@ -58,6 +65,7 @@ class App(Module):
     dcdc_module: TexasInstrumentsTPSM86837RCGR_ReferenceDesign
     mcu: F.RaspberryPiPico
     led_connector = L.list_field(2, LED_Connector)
+    led_buffer: DigitalLEDBuffer
 
     def __preinit__(self):
         # ------------------------------------
@@ -68,16 +76,39 @@ class App(Module):
         # ------------------------------------
         #              connections
         # ------------------------------------
+        # power
         # self.mcu.base.ldo.power_in.lv.connect(self.dcdc_module.power_in.lv)
+        # self.led_buffer.power.connect(self.dcdc_module.power_out)
 
+        # data - mcu > buffer
+        # adafruit scorpio board is using the following gpio for the led strip:
+        for i in range(16, 24):
+            self.mcu.base.rp2040.gpio[i].connect(self.led_buffer.input_channel[i - 16])
+
+        # data - buffer > led
         for i, led_con in enumerate(self.led_connector):
-            vbus.connect_via(self.dcdc_module, led_con.power)  # TODO: connect_via(fuse)
+            vbus.connect_via(self.dcdc_module, led_con.power)
 
             # swap clock and data with the next connector
-            # HyperSerialPico has in SK6812/WS281x mode, data[0] on gpio[2] and data[1] on gpio[3]
-            # in SPI LED mode, you use only 1 of the 2 connectors for data and clock
-            led_con.clock.connect(self.mcu.base.rp2040.gpio[2 + i])
-            led_con.data.connect(self.mcu.base.rp2040.gpio[3 - i])
+            # HyperSerialPico has in SK6812/WS281x mode:
+            # TODO: support hardware switch to change between SK6812/WS281x and SPI LED mode
+            #   segment 0
+            #       on gpio 16
+            #       buffer channel 0
+            #       output connector 0
+            #   segment 1
+            #       on gpio 17
+            #       buffer channel 1
+            #       output connector 1
+            # in SPI LED mode both connector are using the same gpio
+            #   clock
+            #       on gpio 18
+            #       buffer channel 2
+            #   data
+            #       on gpio 19
+            #       buffer channel 3
+            led_con.clock.connect(self.led_buffer.led_channel[2])
+            led_con.data.connect(self.led_buffer.led_channel[3])
 
         # ------------------------------------
         #              Net names
@@ -98,11 +129,9 @@ class App(Module):
         # ------------------------------------
         #          parametrization
         # ------------------------------------
-        # self.dcdc_module.power_module.switching_frequency.constrain_subset(
-        #    self.dcdc_module.power_module.SwitchingFrequency._800kHz
-        # )
-        self.dcdc_module.power_module.output_voltage.constrain_subset(
-            L.Range.from_center_rel(5.0 * P.V, 0.01)
+        # self.dcdc_module.power_module.switching_frequency.constrain_subset(800 * P.kHz)
+        self.dcdc_module.power_out.voltage.constrain_subset(
+            L.Range(5.0 * P.V, 5.1 * P.V)
         )
         # self.dcdc_module.power_module.set_soft_start_time(time=2.2, owner=self)
 

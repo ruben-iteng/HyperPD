@@ -5,11 +5,11 @@ from enum import Enum, auto
 import logging
 
 from atopile.errors import UserNotImplementedError
-from faebryk.core.parameter import IsSubset, Parameter
+from faebryk.core.parameter import Implies, IsSubset, Parameter
 import faebryk.library._F as F  # noqa: F401
 from faebryk.core.module import Module
 from faebryk.libs.library import L  # noqa: F401
-from faebryk.libs.sets.quantity_sets import Quantity_Interval
+from faebryk.libs.sets.quantity_sets import Quantity_Interval, Quantity_Set_Discrete
 from faebryk.libs.units import P  # noqa: F401
 from faebryk.libs.picker.picker import DescriptiveProperties
 from faebryk.libs.util import assert_once
@@ -26,15 +26,15 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     # ----------------------------------------
     #               modules
     # ----------------------------------------
-    class SwitchingFrequency(Enum):
-        _800kHz = auto()
-        _1200kHz = auto()
+    # class SwitchingFrequency(Enum):
+    # _800kHz = auto()
+    # _1200kHz = auto()
 
     # Class attributes to store the corresponding resistance ranges
-    SWITCHING_FREQ_RESISTANCES = {
-        SwitchingFrequency._800kHz: L.Range.from_center_rel(162 * P.kohm, 0.01),
-        SwitchingFrequency._1200kHz: L.Range.from_center_rel(374 * P.kohm, 0.01),
-    }
+    # SWITCHING_FREQ_RESISTANCES = {
+    #    SwitchingFrequency._800kHz: L.Range.from_center_rel(162 * P.kohm, 0.01),
+    #    SwitchingFrequency._1200kHz: L.Range.from_center_rel(374 * P.kohm, 0.01),
+    # }
 
     # @assert_once
     # def set_output_voltage(self, voltage: Quantity_Interval, owner: Module):
@@ -169,7 +169,7 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     power_out = L.d_field(lambda: F.ElectricPower().make_source())  # pins: 1, 16
     frequency_mode: F.Electrical  # pin: 2
     enable: F.EnablePin  # pin: 3
-    feedback: F.Electrical  # pin: 4
+    feedback: F.ElectricSignal  # pin: 4
     power_analog: F.ElectricPower  # pin: 5
     power_good: F.ElectricLogic  # pin: 6
     soft_start: F.Electrical  # pin: 7
@@ -186,9 +186,17 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         likely_constrained=True,
         soft_set=L.Range(0.6 * P.V, 5.5 * P.V),
     )
-    # switching_frequency = L.p_field(
-    #    domain=L.Domains.ENUM(SwitchingFrequency),
-    # )
+    switching_frequency = L.p_field(
+        units=P.kHz,
+        likely_constrained=True,
+        soft_set=L.DiscreteSet(800 * P.kHz, 1200 * P.kHz),
+    )
+    soft_start_time = L.p_field(
+        units=P.ms,
+        likely_constrained=True,
+        soft_set=L.Range(0 * P.ms, 1000 * P.ms),
+    )
+    # under_voltage_lockout = L.p_field(units=P.V)
 
     # ----------------------------------------
     #                 traits
@@ -224,7 +232,7 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
                 "1": self.power_out.hv,
                 "2": self.frequency_mode,
                 "3": self.enable.enable.line,
-                "4": self.feedback,
+                "4": self.feedback.line,
                 "5": self.power_analog.lv,
                 "6": self.power_good.line,
                 "7": self.soft_start,

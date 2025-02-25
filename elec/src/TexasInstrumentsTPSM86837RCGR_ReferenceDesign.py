@@ -1,9 +1,9 @@
 # This file is part of the faebryk project
 # SPDX-License-Identifier: MIT
 
-from enum import Enum, auto
 import logging
 
+from faebryk.core.parameter import Add, Divide, Multiply
 import faebryk.library._F as F  # noqa: F401
 from faebryk.core.module import Module
 from faebryk.libs.library import L  # noqa: F401
@@ -25,7 +25,7 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         # ----------------------------------------
         #              interfaces
         # ----------------------------------------
-        feedback: F.Electrical
+        feedback: F.ElectricSignal
         output_power_rail: F.ElectricPower
         analog_power_rail: F.ElectricPower
 
@@ -37,60 +37,85 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         # ----------------------------------------
         #               modules
         # ----------------------------------------
-        resistor_top: F.Resistor
-        resistor_bottom: F.Resistor
+        resistor_divider: F.ResistorVoltageDivider
 
-        # TODO: make optional?
         # Optional resistor to in-circuit measure frequency response of the control loop
         resistor_control_loop_measurement: F.Resistor
+        # TODO: connect the 2 testpoints to the feedback resistor
+        # frequency_response_testpoints: L.list_field(2, F.Testpoints)
 
-        # TODO: make optional?
-        # Optional capacitor to improve the load transient response or improve the loop-phase margin
+        # capacitor to improve the load transient response or improve the loop-phase margin
         capacitor_filter: F.Capacitor
+
+        # nettie: F.NetTie
 
         def __preinit__(self):
             # ------------------------------------
             #           connections
             # ------------------------------------
-            self.feedback.connect_via(self.resistor_bottom, self.analog_power_rail.lv)
-            self.feedback.connect_via(
-                [self.resistor_top, self.resistor_control_loop_measurement],
-                self.output_power_rail.hv,
+            self.output_power_rail.hv.connect_via(
+                [
+                    self.resistor_control_loop_measurement,
+                    self.resistor_divider.resistor[0],  # TODO very ugly
+                ],
+                self.feedback.line,
             )
-            self.feedback.connect_via(
-                [self.capacitor_filter, self.resistor_control_loop_measurement],
-                self.output_power_rail.hv,
-            )
+            self.feedback.reference.connect(
+                self.resistor_divider.power_out
+            )  # TODO: is this needed?
+
+            self.feedback.line.connect_via(
+                self.capacitor_filter, self.resistor_divider.power_in.hv
+            )  # TODO very ugly
+
+            # connect analog and high power rails via a single point (net tie)
+            # self.output_power_rail.connect_via(
+            #    self.nettie,
+            #    self.analog_power_rail,
+            # )
 
             # ------------------------------------
             #          parametrization
             # ------------------------------------
+            # TODO: This should not need key words
             self.output_voltage.alias_is(
-                0.6
-                * (1 + self.resistor_top.resistance / self.resistor_bottom.resistance)
+                Multiply(0.6 * P.V, Add(1, self.resistor_divider.ratio))
             )
 
             # Valid values from the datasheet
-            self.resistor_top.resistance.constrain_subset(
-                L.Range(0.0 * P.ohm, 82.0 * P.kohm)
-            )
-            self.resistor_bottom.resistance.constrain_subset(
+            # self.resistor_divider.resistor[0].resistance = L.p_field(
+            #    units=P.ohm,
+            #    within=L.Range(0.0 * P.ohm, 82.0 * P.kohm),
+            # )
+            self.resistor_divider.resistor[1].resistance.constrain_subset(
                 L.Range.from_center_rel(10 * P.kohm, 0.01)
             )
-            self.resistor_control_loop_measurement.allow_removal_if_zero()
             self.resistor_control_loop_measurement.resistance.constrain_subset(
                 L.Range.from_center_rel(49.9 * P.ohm, 0.01)
             )
-            # self.capacitor_filter.allow_removal_if_zero() #TODO: make similar function
             self.capacitor_filter.capacitance.constrain_subset(
-                L.Range.from_center_rel(10 * P.nF, 0.01)
+                L.Range.from_center_rel(47 * P.pF, 0.01)
             )
+
+            # use 0402 packages for all capacitors and resistors that do not
+            # have a footprint defined yet
+            for cap in self.get_children_modules(
+                types=F.Capacitor,
+                f_filter=lambda m: not m.has_trait(F.has_footprint),
+            ):
+                cap.add(F.has_package(F.has_package.Package.C0402))
+            for res in self.get_children_modules(
+                types=F.Resistor,
+                f_filter=lambda m: not m.has_trait(F.has_footprint),
+            ):
+                res.add(F.has_package(F.has_package.Package.R0402))
 
     # ----------------------------------------
     #               modules
     # ----------------------------------------
     power_module: TEXAS_INSTRUMENTS_TPSM86837RCGR
     switching_frequency_resistor: F.Resistor
+    soft_start_timing_capacitor: F.Capacitor
     output_voltage_feedback: OutputVoltageFeedback
 
     # ----------------------------------------
@@ -134,8 +159,21 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         )
 
         self.power_module.frequency_mode.connect_via(
-            self.switching_frequency_resistor, self.power_in.lv
+            self.switching_frequency_resistor, self.power_module.power_analog.lv
         )
+
+        self.power_module.soft_start.connect_via(
+            self.soft_start_timing_capacitor, self.power_module.power_analog.lv
+        )
+
+        # connect the output voltage feedback resistor devider
+        self.output_voltage_feedback.output_power_rail.connect(
+            self.power_module.power_out
+        )
+        self.output_voltage_feedback.analog_power_rail.connect(
+            self.power_module.power_analog
+        )
+        self.output_voltage_feedback.feedback.connect(self.power_module.feedback)
 
         # ------------------------------------
         #          parametrization
@@ -144,15 +182,55 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
             self.output_voltage_feedback.output_voltage
         )
 
-        self.switching_frequency_resistor.resistance.constrain_subset(
-            L.Range.from_center_rel(162 * P.kohm, 0.01)
+        # soft start
+        soft_start_charging_current = (
+            # L.Single(6 * P.uA)  # no range in datasheet
+            L.Range.from_center_rel(6 * P.uA, 0.01)
+        )
+        soft_start_voltage_reference = L.Range.from_center_rel(0.6 * P.V, 0.01)
+
+        self.power_module.soft_start_time.alias_is(
+            (
+                self.soft_start_timing_capacitor.capacitance
+                * soft_start_voltage_reference
+                / soft_start_charging_current
+            )
+            * P.F
+        )
+        self.soft_start_timing_capacitor.capacitance.alias_is(
+            (soft_start_charging_current / soft_start_voltage_reference)
+            / self.power_module.soft_start_time
+        )
+        # self.soft_start_timing_capacitor.capacitance.constrain_subset(
+        #    L.Range.from_center_rel(22 * P.nF, 0.01)
+        # )  # TODO: remove
+        self.power_module.soft_start_time.constrain_subset(
+            L.Range.from_center_rel(2.2 * P.ms, 0.1)
         )
 
-        # self.enable.make_required()
+        # map switching frequency to config resistor value
+        self.power_module.switching_frequency.constrain_mapping(
+            self.switching_frequency_resistor.resistance,
+            {
+                800 * P.kHz: L.Range.from_center_rel(162 * P.kohm, 0.01),
+                1200 * P.kHz: L.Range.from_center_rel(374 * P.kohm, 0.01),
+            },
+        )
+        # TODO: remove
+        self.power_module.switching_frequency.constrain_subset(1200 * P.kHz)
+        # TODO: self.enable.make_required()
+
+        # use the recommended in and output capacitors from the offical reference design
         for cap in self.power_in.decoupled.decouple(owner=self, count=2).capacitors:
             cap.capacitance.constrain_subset(L.Range.from_center_rel(10 * P.uF, 0.1))
-
-        # use the recommended outputcapacitors from the datasheet
+            cap.add(
+                F.has_descriptive_properties_defined(
+                    {
+                        DescriptiveProperties.manufacturer: "Murata Electronics",
+                        DescriptiveProperties.partno: "GRM32ER7YA106KA12L",
+                    }
+                )
+            )
         for cap in self.power_out.decoupled.decouple(owner=self, count=3).capacitors:
             cap.add(
                 F.has_descriptive_properties_defined(
@@ -162,7 +240,3 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
                     }
                 )
             )
-            # cap.add(F.has_descriptive_properties_defined({"LCSC": "C21397"}))
-
-        for res in self.get_children_modules(types=F.Resistor):
-            res.add(F.has_package(F.has_package.Package.R0402))

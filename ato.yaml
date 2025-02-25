@@ -1,4 +1,4 @@
-ato-version: ~0.3.10
+ato-version: ~0.3.14.dev0
 
 paths:
   src: ./elec/src/
@@ -13,3 +13,5 @@ builds:
     entry: elec/src/texas_instruments_tpsm86837rcgr.py:TEXAS_INSTRUMENTS_TPSM86837RCGR
   usb_power_source:
     entry: elec/src/usb_power_source.py:USB_Power_Source
+  digital_led_buffer:
+    entry: elec/src/digital_led_buffer.py:DigitalLEDBuffer
