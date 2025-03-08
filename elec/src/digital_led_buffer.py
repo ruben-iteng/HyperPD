@@ -8,29 +8,28 @@ import faebryk.library._F as F  # noqa: F401
 from faebryk.core.module import Module
 from faebryk.libs.library import L  # noqa: F401
 from faebryk.libs.units import P  # noqa: F401
-from faebryk.libs.picker.picker import DescriptiveProperties
-from .nexperia74ahct245p import Nexperia_74AHCT245PW
+from .SN74LVC2G34 import SN74LVC2G34
 
 logger = logging.getLogger(__name__)
 
 
 class DigitalLEDBuffer(Module):
     """
-    8 channel buffer/level shifter for digital LEDs (like neopixels)
+    2 channel buffer/level shifter for digital LEDs (like neopixels)
     """
 
     # ----------------------------------------
     #                modules
     # ----------------------------------------
-    buffer: Nexperia_74AHCT245PW
-    current_limit_resistors = L.list_field(8, F.Resistor)
+    buffer_ic: SN74LVC2G34
+    current_limit_resistors = L.list_field(2, F.Resistor)
 
     # ----------------------------------------
     #              interfaces
     # ----------------------------------------
     power: F.ElectricPower
-    input_channel = L.list_field(8, F.ElectricLogic)
-    led_channel = L.list_field(8, F.ElectricLogic)
+    input_channel = L.list_field(2, F.ElectricLogic)
+    led_channel = L.list_field(2, F.ElectricLogic)
 
     # ----------------------------------------
     #              parameters
@@ -39,7 +38,6 @@ class DigitalLEDBuffer(Module):
     # ----------------------------------------
     #                traits
     # ----------------------------------------
-    # TODO: currently not possible to bridge with lists of interfaces
     # @L.rt_field
     # def bridge(self):
     #    return F.can_bridge_defined(self.input_channel, self.led_channel)
@@ -51,18 +49,13 @@ class DigitalLEDBuffer(Module):
         for i, (input, led_chan) in enumerate(
             zip(self.input_channel, self.led_channel)
         ):
-            input.connect(self.buffer.data_a[i])
+            input.connect(self.buffer_ic.buffer[i].input)
             led_chan.line.connect_via(
-                self.current_limit_resistors[i], self.buffer.data_b[i].line
+                self.current_limit_resistors[i], self.buffer_ic.buffer[i].output.line
             )
 
-        self.buffer.power.connect(self.power)
+        self.buffer_ic.power.connect(self.power)
         decoupling_cap = self.power.decoupled.decouple(owner=self).capacitors[0]
-
-        self.buffer.enable.set(on=False)
-        # TODO: weird, it is active low so now its enabled
-
-        self.buffer.direction.set(on=True)  # high gives A=input, A=B
 
         # ------------------------------------
         #          parametrization
@@ -75,7 +68,7 @@ class DigitalLEDBuffer(Module):
             res.add(
                 F.has_pcb_layout_defined(
                     layout=LayoutNextToPin(
-                        interface=self.buffer.data_b[i].line,
+                        interface=self.buffer_ic.buffer[i].output.line,
                         distance_between_pad_edges=0.5 if not i % 2 else 2.75,
                     )
                 )
@@ -88,7 +81,7 @@ class DigitalLEDBuffer(Module):
         decoupling_cap.add(
             F.has_pcb_layout_defined(
                 layout=LayoutNextToPin(
-                    interface=self.buffer.power.hv, distance_between_pad_edges=0.5
+                    interface=self.buffer_ic.power.hv, distance_between_pad_edges=0.5
                 )
             )
         )
