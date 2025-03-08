@@ -1,15 +1,12 @@
 # This file is part of the faebryk project
 # SPDX-License-Identifier: MIT
 
-from enum import Enum, auto
 import logging
 
 from atopile.errors import UserNotImplementedError
-from faebryk.core.parameter import Implies, IsSubset, Parameter
 import faebryk.library._F as F  # noqa: F401
 from faebryk.core.module import Module
 from faebryk.libs.library import L  # noqa: F401
-from faebryk.libs.sets.quantity_sets import Quantity_Interval, Quantity_Set_Discrete
 from faebryk.libs.units import P  # noqa: F401
 from faebryk.libs.picker.picker import DescriptiveProperties
 from faebryk.libs.util import assert_once
@@ -142,27 +139,6 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         # r2=(r1*VENfaling)/(Vstop-VENfaling+r1*(Ip+Ih))
         # VEN = (r2*VIN+r1*r2*(Ip+Ih))/(r1+r2)
 
-    # @assert_once
-    # def set_switching_frequency(self, frequency: SwitchingFrequency, owner: Module):
-    #     """
-    #     Set the switching frequency of the module.
-    #     """
-    #     switching_frequency_resistor = F.Resistor()
-    #     if frequency == self.SwitchingFrequency._800kHz:
-    #         switching_frequency_resistor.resistance.constrain_subset(
-    #             L.Range.from_center_rel(162 * P.kohm, 0.01)
-    #         )
-    #     else:
-    #         switching_frequency_resistor.resistance.constrain_subset(
-    #             L.Range.from_center_rel(374 * P.kohm, 0.01)
-    #         )
-
-    #     self.frequency_mode.connect_via(
-    #         switching_frequency_resistor, self.power_analog.lv
-    #     )
-
-    #     owner.add(switching_frequency_resistor)
-
     # ----------------------------------------
     #              interfaces
     # ----------------------------------------
@@ -263,7 +239,21 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         self.power_in.voltage.constrain_subset(L.Range(4.5 * P.V, 28 * P.V))
         self.power_out.voltage.constrain_subset(self.output_voltage)
 
-        # The datasheet does not specify a specific voltage, but there is an image of the internal circuitry showing a 5V rail
+        # TODO: sofset is currently not used so constrain manually
+        self.power_out.voltage.constrain_subset(L.Range(0.6 * P.V, 5.5 * P.V))
+        self.switching_frequency.constrain_subset(
+            L.DiscreteSet(800 * P.kHz, 1200 * P.kHz)
+        )
+        self.soft_start_time.constrain_subset(L.Range(0 * P.ms, 1000 * P.ms))
+
+        # The datasheet does not specify a specific voltage, but there is an image of
+        # the internal circuitry showing a 5V rail
         self.power_analog.voltage.constrain_subset(
-            L.Range.from_center_rel(5 * P.V, 0.01)
+            L.Range.from_center_rel(5 * P.V, 10 * P.percent)
+        )
+
+        # The datasheet does not specify a specific current, 60uA is calculated from
+        # the recommended component values in the datasheet (Table 7-2)
+        self.feedback.reference.max_current.constrain_subset(
+            L.Range.from_center_rel(60 * P.uA, 10 * P.percent)
         )
