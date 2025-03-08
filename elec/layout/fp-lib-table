@@ -5,10 +5,4 @@
         (type "KiCad")
         (uri "${KIPRJMOD}/../../build/kicad/libs/footprints/atopile.pretty")
         (options "")
-        (descr "atopile: atopile footprints"))
-    (lib
-        (name "ki-lime-pi-to-go")
-        (type "KiCad")
-        (uri "${KIPRJMOD}/../libs/ki-lime-pi-to-go//home/ruben/Documents/repos/atopile_projects/Apps/HyperPD/elec/libs/ki-lime-pi-to-go/Module_RaspberryPi_Pico.pretty")
-        (options "")
-        (descr "Raspberry Pi Pico footprints")))
+        (descr "atopile: atopile footprints")))
