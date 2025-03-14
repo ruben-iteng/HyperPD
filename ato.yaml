@@ -1,15 +1,18 @@
-ato-version: ~0.3.15.dev0
+ato-version: ^0.3.16
 
 paths:
-  src: ./elec/src/
-  layout: ./elec/layout/
+  src: ./
+  layout: ./layout/
 
 builds:
   default:
-    entry: elec/src/hyperpd.py:App
+    entry: src/hyperpd/hyperpd.py:App
+    targets:
+      - bom
+      - mfg-data
   tpsm86837rcgr_reference_design:
-    entry: elec/src/TexasInstrumentsTPSM86837RCGR_ReferenceDesign.py:TexasInstrumentsTPSM86837RCGR_ReferenceDesign
+    entry: src/hyperpd/TexasInstrumentsTPSM86837RCGR_ReferenceDesign.py:TexasInstrumentsTPSM86837RCGR_ReferenceDesign
   usb_power_source:
-    entry: elec/src/usb_power_source.py:USB_Power_Source
+    entry: src/hyperpd/usb_power_source.py:USB_Power_Source
   digital_led_buffer:
-    entry: elec/src/digital_led_buffer.py:DigitalLEDBuffer
+    entry: src/hyperpd/digital_led_buffer.py:DigitalLEDBuffer
