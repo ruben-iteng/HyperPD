@@ -150,7 +150,10 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
     power_good: F.ElectricLogic  # pin: 6
     soft_start: F.Electrical  # pin: 7
     power_in: F.ElectricPower  # pins: 8, 9
-    # n.c. switchng_node: F.Electrical  # pins: 10, 11
+    switching_node: F.Electrical  # pins: 10, 11
+    """
+    Do not connect, only for better thermal dissipation and reduced parasitic impedance.
+    """
     # n.c. bootstrap: F.Electrical  # pin: 12
     # power_ground: F.Electrical  # pins: 17, 18, 19
 
@@ -214,8 +217,8 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
                 "7": self.soft_start,
                 "8": self.power_in.hv,
                 "9": self.power_in.hv,
-                "10": None,  # self.switching_node,
-                "11": None,  # self.switching_node,
+                "10": self.switching_node,
+                "11": self.switching_node,
                 "12": None,  # self.bootstrap,
                 "13": self.power_in.lv,
                 "14": self.power_in.lv,
