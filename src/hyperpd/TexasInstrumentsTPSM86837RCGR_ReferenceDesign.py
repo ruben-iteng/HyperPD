@@ -3,7 +3,7 @@
 
 import logging
 
-from faebryk.core.parameter import Add, Multiply
+from faebryk.core.parameter import Add, Multiply, Min, Max, Parameter
 import faebryk.library._F as F  # noqa: F401
 from faebryk.core.module import Module
 from faebryk.libs.library import L  # noqa: F401
@@ -151,6 +151,100 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
                     )
                 )
 
+    class UnderVoltageLockout(Module):
+        """
+        Under voltage lockout to prevent the module from operating below a set minimum
+        input voltage
+        """
+
+        power_in: F.ElectricPower
+        output: F.ElectricSignal
+        enable: F.ElectricLogic
+
+        resistor_divider: F.ResistorVoltageDivider
+        over_voltage_protection_diode: F.Diode
+
+        under_voltage_lockout_voltage = L.p_field(
+            units=P.V,
+            likely_constrained=True,
+            soft_set=L.Range(0.5 * P.V, 5.5 * P.V),
+        )
+
+        @L.rt_field
+        def can_bridge(self):
+            return F.can_bridge_defined(self.output, self.enable)  # TODO: reversed
+
+        def __preinit__(self):
+            self.resistor_divider.power.connect(self.power_in)
+            self.resistor_divider.output.connect(self.output)
+
+            # TODO: hack, should just be able to connect to each other
+            self.output.line.connect(self.enable.line)
+            self.output.reference.connect(self.enable.reference)
+
+            # a zener diode is used here to protect the enable pin voltages higher than
+            # 5.5V
+            self.over_voltage_protection_diode.add(
+                F.has_explicit_part.by_supplier("C435914")
+            )
+            self.over_voltage_protection_diode.add(
+                F.has_descriptive_properties_defined(
+                    {
+                        DescriptiveProperties.manufacturer: "Diodes Incorporated",
+                        DescriptiveProperties.partno: "MMSZ5231BS-7-F",
+                    }
+                )
+            )
+            self.power_in.lv.connect_via(
+                self.over_voltage_protection_diode, self.enable.line
+            )
+            self.over_voltage_protection_diode.forward_voltage.constrain_subset(
+                L.Range.from_center_rel(0.9 * P.V, 0.01)
+            )
+            self.over_voltage_protection_diode.reverse_leakage_current.constrain_subset(
+                L.Range.from_center_rel(5 * P.uA, 0.01)
+            )
+            self.over_voltage_protection_diode.reverse_working_voltage.constrain_subset(
+                L.Range(4.85 * P.V, 5.36 * P.V)
+            )
+            self.over_voltage_protection_diode.max_current.constrain_subset(
+                L.Range.from_center_rel(20 * P.mA, 0.01)
+            )
+
+            # from section 6.3.4 from the datasheet
+            # what is this vstart and vstop? 0_o
+            # maybe is is the enable voltage min/max you want to set?
+            vstart = Max(self.under_voltage_lockout_voltage)
+            vstop = Min(self.under_voltage_lockout_voltage)
+            pull_up_current = L.Single(1 * P.uA)
+            hysteresis_current = L.Single(1 * P.uA)
+            enable_falling_voltage = L.Single(1.07 * P.V)
+            enable_rising_voltage = L.Single(1.18 * P.V)
+
+            # calculate the top resistor value
+            r_top_resistance = (
+                vstart * (enable_falling_voltage / enable_rising_voltage) - vstop
+            ) / (
+                pull_up_current * (1 - enable_falling_voltage / enable_rising_voltage)
+                + hysteresis_current
+            )
+
+            self.resistor_divider.r_top.resistance.alias_is(
+                r_top_resistance
+                * L.Range.from_center_rel(100 * P.percent, 1 * P.percent)
+            )
+
+            # calculate the bottom resistor value
+            r_bottom_resistance = (r_top_resistance * enable_falling_voltage) / (
+                vstop
+                - enable_falling_voltage
+                + r_top_resistance * (pull_up_current + hysteresis_current)
+            )
+            self.resistor_divider.r_bottom.resistance.alias_is(
+                r_bottom_resistance
+                * L.Range.from_center_rel(100 * P.percent, 1 * P.percent)
+            )
+
     # ----------------------------------------
     #               modules
     # ----------------------------------------
@@ -158,18 +252,29 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
     switching_frequency_resistor: F.Resistor
     soft_start_timing_capacitor: F.Capacitor
     output_voltage_feedback: OutputVoltageFeedback
+    under_voltage_lockout: UnderVoltageLockout
+    # internal inductor #TODO: add for ripple calculations?
+    # inductor: F.Inductor
+    # self.inductor.inductance.constrain_subset(
+    #        L.Range.from_center_rel(1.5 * P.uH, 20 * P.percent)
+    #    )
 
     # ----------------------------------------
     #              interfaces
     # ----------------------------------------
     power_in = L.d_field(lambda: F.ElectricPower())  # .make_sink())
     power_out = L.d_field(lambda: F.ElectricPower())  # .make_source())
-    enable: F.EnablePin
+    enable: F.ElectricLogic
     power_good: F.ElectricLogic
 
     # ----------------------------------------
     #               parameters
     # ----------------------------------------
+    # expose for easy access
+    output_voltage = L.p_field(units=P.V)
+    input_voltage_lockout_voltage = L.p_field(units=P.V)
+    soft_start_time = L.p_field(units=P.ms)
+    switching_frequency = L.p_field(units=P.kHz)
 
     # ----------------------------------------
     #                 traits
@@ -191,10 +296,17 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         # only connect through the following interfaces for ease of use
         self.power_module.power_in.connect(self.power_in)
         self.power_module.power_out.connect(self.power_out)
-        self.power_module.enable.connect(self.enable)
         self.power_module.power_good.connect(self.power_good)
 
-        # enable the power module
+        self.under_voltage_lockout.enable.connect(self.enable)
+        self.under_voltage_lockout.power_in.connect(self.power_in)
+        self.under_voltage_lockout.output.line.connect(
+            self.power_module.enable.enable.line
+        )
+        self.under_voltage_lockout.output.reference.connect(
+            self.power_module.enable.enable.reference
+        )
+
         self.power_good.set_weak(on=True, owner=self).resistance.constrain_subset(
             L.Range.from_center_rel(100 * P.kohm, 0.10)
         )
@@ -220,12 +332,10 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         self.output_voltage_feedback.resistor_divider.max_current.alias_is(
             self.power_module.feedback.reference.max_current
         )
+        self.power_out.voltage.alias_is(self.output_voltage)
         self.power_out.voltage.constrain_subset(
             L.Range.from_center_rel(5 * P.V, 1 * P.percent)
         )  # TODO: remove
-        # self.power_module.output_voltage.alias_is(
-        #    self.output_voltage_feedback.output_voltage
-        # )
 
         # soft start -------------------------
         # capacitor (Css) between soft start and analog ground
@@ -239,6 +349,7 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         )
         soft_start_voltage_reference = L.Range.from_center_rel(0.6 * P.V, 0.01)
 
+        self.power_module.soft_start_time.alias_is(self.soft_start_time)
         self.power_module.soft_start_time.alias_is(
             self.soft_start_timing_capacitor.capacitance
             * soft_start_voltage_reference
@@ -257,8 +368,10 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
         self.soft_start_timing_capacitor.add(
             F.is_pickable_by_supplier_id(supplier_part_id="C77023")
         )
+
         # switching frequency ----------------
         # map switching frequency to config resistor value
+        self.power_module.switching_frequency.alias_is(self.switching_frequency)
         self.power_module.switching_frequency.constrain_mapping(
             self.switching_frequency_resistor.resistance,
             {
@@ -266,7 +379,6 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
                 1200 * P.kHz: L.Range.from_center_rel(374 * P.kohm, 0.01),
             },
         )
-        # TODO: self.enable.make_required()
 
         # use the recommended in and output capacitors from the offical reference design
         for cap in self.power_in.decoupled.decouple(owner=self, count=2).capacitors:
@@ -288,6 +400,10 @@ class TexasInstrumentsTPSM86837RCGR_ReferenceDesign(Module):
                     }
                 )
             )
+        self.input_voltage_lockout_voltage.alias_is(
+            self.under_voltage_lockout.under_voltage_lockout_voltage
+        )
+
         # use 0402 packages for all capacitors and resistors that do not
         # have a footprint defined yet
         # for comp in self.get_children_modules(

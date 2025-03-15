@@ -123,7 +123,6 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         # ------------------------------------
         #          parametrization
         # ------------------------------------
-        # self.enable.make_required()
         self.power_in.voltage.constrain_subset(L.Range(4.5 * P.V, 28 * P.V))
         self.power_out.voltage.constrain_subset(self.output_voltage)
 
@@ -145,3 +144,8 @@ class TEXAS_INSTRUMENTS_TPSM86837RCGR(Module):
         self.feedback.reference.max_current.constrain_subset(
             L.Range.from_center_rel(60 * P.uA, 10 * P.percent)
         )
+
+        # TODO: no support for high/low/hysteresis/min/max voltage for ElectricLogic
+        # self.enable.has_single_electric_reference.reference.voltage.constrain_subset(
+        #    L.Range(0.5 * P.V, 5.5 * P.V)
+        # )
