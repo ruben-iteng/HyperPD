@@ -15,6 +15,10 @@ jobs:
           version: '0.6.6'
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+      - name: Make venv with correct python version
+        run: uv venv --python 3.13.2
+      - name: Activate venv
+        run: source .venv/bin/activate
       - name: Install project
         run: uv run pip install -e .
 
